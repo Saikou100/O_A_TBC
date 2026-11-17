@@ -76,6 +76,7 @@
 #include <wx/msgdlg.h>
 #include <wx/stackwalk.h>
 #include <wx/utils.h>
+#include <wx/window.h>
 
 namespace config {
 	agi::Options *opt = nullptr;
@@ -236,6 +237,18 @@ bool AegisubApp::OnInit() {
 	libresrc_set_dark_icons_enabled(dark_mode_at_startup);
 	if (dark_mode_at_startup) {
 		MSWEnableDarkMode(wxApp::DarkMode_Always);
+	}
+#endif
+
+	// Enlarge the whole interface independently of the Windows display scale.
+	// This must happen before any window is created.
+	ui_scale_at_startup = static_cast<int>(OPT_GET("App/UI Scale")->GetInt());
+#if defined(__WXMSW__) && defined(wxHAS_MSW_USER_DPI_SCALE)
+	{
+		static const double ui_scales[] = { 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0 };
+		const int count = static_cast<int>(sizeof(ui_scales) / sizeof(ui_scales[0]));
+		const int index = ui_scale_at_startup >= 0 && ui_scale_at_startup < count ? ui_scale_at_startup : 0;
+		wxMSWSetUserDPIScale(ui_scales[index]);
 	}
 #endif
 

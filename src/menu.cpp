@@ -201,7 +201,11 @@ public:
 #ifndef __WXMAC__
 		/// @todo Maybe make this a configuration option instead?
 		if (kind == wxITEM_NORMAL)
+#if defined(__WXMSW__) && wxCHECK_VERSION(3, 1, 6)
+			item->SetBitmap(cmd::IconBundle(co, 16));
+#else
 			item->SetBitmap(co->Icon(16));
+#endif
 #endif
 		parent->Append(item);
 		items.push_back(co->name());

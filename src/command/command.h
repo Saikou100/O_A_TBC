@@ -23,6 +23,10 @@
 #include <vector>
 
 #include <wx/bitmap.h>
+#include <wx/version.h>
+#if wxCHECK_VERSION(3, 1, 6)
+#include <wx/bmpbndl.h>
+#endif
 #include <wx/intl.h>
 #include <wx/string.h>
 
@@ -169,4 +173,12 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 
 	/// Unregister and deletes all commands
 	void clear();
+
+#if wxCHECK_VERSION(3, 1, 6)
+	/// Build a bundle with every available resolution of a command's icon,
+	/// so wxWidgets can pick a sharp image for the window's DPI / UI scale
+	/// instead of stretching the base-size bitmap.
+	/// @param size Icon size in device-independent pixels
+	wxBitmapBundle IconBundle(Command *command, int size, wxLayoutDirection dir = wxLayout_LeftToRight);
+#endif
 } // namespace cmd

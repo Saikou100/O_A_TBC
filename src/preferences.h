@@ -55,6 +55,8 @@ private:
 	bool theme_preset_callback_added = false;
 	bool dark_mode_at_startup = false;
 	bool last_committed_dark_mode = false;
+	int ui_scale_at_startup = 0;
+	int last_committed_ui_scale = 0;
 	bool restart_prompt_dismissed = false;
 	bool restart_requested = false;
 

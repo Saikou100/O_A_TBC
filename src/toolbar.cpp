@@ -141,7 +141,12 @@ namespace {
 					flags & cmd::COMMAND_TOGGLE ? wxITEM_CHECK :
 					wxITEM_NORMAL;
 
+#if defined(__WXMSW__) && wxCHECK_VERSION(3, 1, 6)
+				// Let wx pick the sharpest image for the current DPI / UI scale.
+				wxBitmapBundle const bitmap = cmd::IconBundle(command, icon_size, GetLayoutDirection());
+#else
 				wxBitmap const& bitmap = command->Icon(icon_size, retina_helper.GetScaleFactor(), GetLayoutDirection());
+#endif
 				AddTool(TOOL_ID_BASE + commands.size(), command->StrDisplay(context), bitmap, command->GetTooltip(ht_context), kind);
 
 				commands.push_back(command);

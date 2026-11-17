@@ -110,4 +110,29 @@ namespace cmd {
 	void clear() {
 		cmd_map.clear();
 	}
+
+#if wxCHECK_VERSION(3, 1, 6)
+	wxBitmapBundle IconBundle(Command *command, int size, wxLayoutDirection dir) {
+		wxVector<wxBitmap> bitmaps;
+		// 1x, 1.5x, 2x, 3x and 4x of the requested size; Icon() snaps each
+		// request to the nearest embedded image (16/24/32/48/64 px).
+		for (int half_steps : {2, 3, 4, 6, 8}) {
+			wxBitmap bmp = command->Icon(size * half_steps / 2, 1.0, dir);
+			if (!bmp.IsOk())
+				continue;
+			bool duplicate = false;
+			for (auto const& existing : bitmaps) {
+				if (existing.GetSize() == bmp.GetSize()) {
+					duplicate = true;
+					break;
+				}
+			}
+			if (!duplicate)
+				bitmaps.push_back(bmp);
+		}
+		if (bitmaps.empty())
+			return wxBitmapBundle();
+		return wxBitmapBundle::FromBitmaps(bitmaps);
+	}
+#endif
 }

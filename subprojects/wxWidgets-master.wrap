@@ -4,3 +4,4 @@ url = https://github.com/wxWidgets/wxWidgets.git
 revision = v3.3.3
 clone-recursive = true
 depth = 1
+diff_files = wxWidgets-master/0002-user-dpi-scale.patch

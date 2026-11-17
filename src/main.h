@@ -62,6 +62,8 @@ class AegisubApp : public wxApp {
 	bool restart_on_exit = false;
 	// wxWidgets' native dark mode is selected only during startup.
 	bool dark_mode_at_startup = false;
+	// Index into the App/UI Scale choices applied for this running process.
+	int ui_scale_at_startup = 0;
 	wxArrayString restart_arguments;
 public:
 	AegisubApp();
@@ -73,6 +75,8 @@ public:
 	bool RequestRestart(agi::Context *context);
 	/// Whether native dark mode was actually enabled for this running process.
 	bool IsDarkModeActive() const { return dark_mode_at_startup; }
+	/// App/UI Scale value that was applied when this process started.
+	int UIScaleAtStartup() const { return ui_scale_at_startup; }
 
 	// Apple events
 	void MacOpenFiles(wxArrayString const& filenames)

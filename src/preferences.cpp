@@ -66,11 +66,20 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/treebook.h>
+#include <wx/window.h>
 #include <cstring>
 
 namespace {
 bool DarkModeChangeRequiresRestart() {
 #if defined(__WXMSW__) && wxVERSION_NUMBER >= 3300
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool UIScaleChangeRequiresRestart() {
+#if defined(__WXMSW__) && defined(wxHAS_MSW_USER_DPI_SCALE)
 	return true;
 #else
 	return false;
@@ -88,6 +97,15 @@ void General(wxTreebook *book, Preferences *parent) {
 	p->CellSkip(general);
 
 	p->OptionAdd(general, _("Toolbar Icon Size"), "App/Toolbar Icon Size");
+	if (UIScaleChangeRequiresRestart()) {
+		// Order must match the ui_scales table in main.cpp.
+		wxString ui_scales[] = {
+			_("100% (native)"), "125%", "150%", "175%",
+			_("200% (4K looks like 1080p)"), "250%", "300%"
+		};
+		wxArrayString ui_scales_arr(7, ui_scales);
+		p->OptionChoice(general, _("Interface size (needs restart)"), ui_scales_arr, "App/UI Scale");
+	}
 	wxString autoload_modes[] = { _("Never"), _("Always"), _("Ask") };
 	wxArrayString autoload_modes_arr(3, autoload_modes);
 	p->OptionChoice(general, _("Automatically load linked files"), autoload_modes_arr, "App/Auto/Load Linked Files");
@@ -1242,23 +1260,32 @@ void Preferences::ApplyPendingThemePreset() {
 }
 
 void Preferences::PromptForDarkModeRestart() {
-	if (!DarkModeChangeRequiresRestart())
-		return;
-
 	bool dark_mode = OPT_GET("App/Dark Mode")->GetBool();
-	if (dark_mode != last_committed_dark_mode) {
+	int ui_scale = static_cast<int>(OPT_GET("App/UI Scale")->GetInt());
+	if (dark_mode != last_committed_dark_mode || ui_scale != last_committed_ui_scale) {
 		last_committed_dark_mode = dark_mode;
+		last_committed_ui_scale = ui_scale;
 		restart_prompt_dismissed = false;
 	}
 
 	// The saved preference may differ from the mode used to create wxWidgets'
 	// native controls when an earlier restart was deferred.
-	if (dark_mode == dark_mode_at_startup || restart_prompt_dismissed)
+	bool const dark_pending = DarkModeChangeRequiresRestart() && dark_mode != dark_mode_at_startup;
+	bool const scale_pending = UIScaleChangeRequiresRestart() && ui_scale != ui_scale_at_startup;
+	if ((!dark_pending && !scale_pending) || restart_prompt_dismissed)
 		return;
+
+	wxString message;
+	if (dark_pending && scale_pending)
+		message = _("Restart Aegisub to apply dark mode and the new interface size?");
+	else if (scale_pending)
+		message = _("Restart Aegisub to apply the new interface size?");
+	else
+		message = _("Restart Aegisub to apply dark mode?\n\nAegisub needs to restart to update native Windows controls.");
 
 	wxMessageDialog dialog(
 		this,
-		_("Restart Aegisub to apply dark mode?\n\nAegisub needs to restart to update native Windows controls."),
+		message,
 		_("Restart Aegisub?"),
 		wxYES_NO | wxICON_QUESTION | wxCENTER);
 	dialog.SetYesNoLabels(_("Restart Now"), _("Later"));
@@ -1321,6 +1348,8 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 
 	dark_mode_at_startup = wxGetApp().IsDarkModeActive();
 	last_committed_dark_mode = OPT_GET("App/Dark Mode")->GetBool();
+	ui_scale_at_startup = wxGetApp().UIScaleAtStartup();
+	last_committed_ui_scale = static_cast<int>(OPT_GET("App/UI Scale")->GetInt());
 
 	book = new wxTreebook(this, -1, wxDefaultPosition, wxDefaultSize);
 	General(book, this);

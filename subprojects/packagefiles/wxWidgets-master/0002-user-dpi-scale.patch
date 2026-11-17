@@ -1,0 +1,106 @@
+diff --git a/include/wx/msw/window.h b/include/wx/msw/window.h
+index 771de07..371a872 100644
+--- a/include/wx/msw/window.h
++++ b/include/wx/msw/window.h
+@@ -840,6 +840,14 @@ private:
+     wxDECLARE_EVENT_TABLE();
+ };
+ 
++// Aegisub: extra UI scale factor applied on top of the DPI reported by
++// Windows, so the whole interface can be enlarged independently of the
++// system-wide display scale. Must be set before any window is created.
++#define wxHAS_MSW_USER_DPI_SCALE 1
++WXDLLIMPEXP_CORE void wxMSWSetUserDPIScale(double scale);
++WXDLLIMPEXP_CORE double wxMSWGetUserDPIScale();
++WXDLLIMPEXP_CORE wxSize wxMSWApplyUserDPIScale(const wxSize& dpi);
++
+ // window creation helper class: before creating a new HWND, instantiate an
+ // object of this class on stack - this allows to process the messages sent to
+ // the window even before CreateWindow() returns
+diff --git a/src/msw/display.cpp b/src/msw/display.cpp
+index 16645e7..ad27c83 100644
+--- a/src/msw/display.cpp
++++ b/src/msw/display.cpp
+@@ -353,7 +353,7 @@ wxSize wxDisplayMSW::GetPPI() const
+     if ( ppi.IsEmpty() && IsPrimary() )
+         ppi = wxDisplayImplSingleMSW().GetPPI();
+ 
+-    return ppi;
++    return wxMSWApplyUserDPIScale(ppi);
+ }
+ 
+ wxSize wxDisplayMSW::GetRawPPI() const
+diff --git a/src/msw/nonownedwnd.cpp b/src/msw/nonownedwnd.cpp
+index 43b9d7d..5ccde92 100644
+--- a/src/msw/nonownedwnd.cpp
++++ b/src/msw/nonownedwnd.cpp
+@@ -259,8 +259,9 @@ WXLRESULT wxNonOwnedWindow::MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPA
+                 const RECT* const prcNewWindow =
+                                          reinterpret_cast<const RECT*>(lParam);
+ 
+-                processed = HandleDPIChange(wxSize(LOWORD(wParam),
+-                                                   HIWORD(wParam)),
++                processed = HandleDPIChange(wxMSWApplyUserDPIScale(
++                                                wxSize(LOWORD(wParam),
++                                                       HIWORD(wParam))),
+                                             wxRectFromRECT(*prcNewWindow));
+             }
+             break;
+diff --git a/src/msw/window.cpp b/src/msw/window.cpp
+index 57cef26..c5e671b 100644
+--- a/src/msw/window.cpp
++++ b/src/msw/window.cpp
+@@ -4873,6 +4873,26 @@ wxWindowMSW::MSWOnMeasureItem(int id, WXMEASUREITEMSTRUCT *itemStruct)
+ // DPI
+ // ---------------------------------------------------------------------------
+ 
++static double gs_userDPIScale = 1.0;
++
++void wxMSWSetUserDPIScale(double scale)
++{
++    gs_userDPIScale = scale > 0.0 ? scale : 1.0;
++}
++
++double wxMSWGetUserDPIScale()
++{
++    return gs_userDPIScale;
++}
++
++wxSize wxMSWApplyUserDPIScale(const wxSize& dpi)
++{
++    if ( gs_userDPIScale == 1.0 || !dpi.x || !dpi.y )
++        return dpi;
++    return wxSize(wxRound(dpi.x * gs_userDPIScale),
++                  wxRound(dpi.y * gs_userDPIScale));
++}
++
+ wxSize wxGetWindowDPI(HWND hwnd)
+ {
+     typedef UINT (WINAPI *GetDpiForWindow_t)(HWND hwnd);
+@@ -4889,7 +4909,7 @@ wxSize wxGetWindowDPI(HWND hwnd)
+     if ( s_pfnGetDpiForWindow )
+     {
+         const int dpi = static_cast<int>(s_pfnGetDpiForWindow(hwnd));
+-        return wxSize(dpi, dpi);
++        return wxMSWApplyUserDPIScale(wxSize(dpi, dpi));
+     }
+ 
+     return wxSize();
+@@ -4981,7 +5001,7 @@ wxSize wxWindowMSW::GetDPI() const
+             // about doing it but still return the screen DPI which will often,
+             // if not always, be the correct value to use anyhow.
+             wxLogDebug("Using possibly wrong DPI for %s", wxDumpWindow(this));
+-            return wxGetDPIofHDC(ScreenHDC());
++            return wxMSWApplyUserDPIScale(wxGetDPIofHDC(ScreenHDC()));
+         }
+     }
+ 
+@@ -4989,7 +5009,7 @@ wxSize wxWindowMSW::GetDPI() const
+ 
+     if ( !dpi.x || !dpi.y )
+     {
+-        dpi = wxGetDPIofHDC(ClientHDC(hwnd));
++        dpi = wxMSWApplyUserDPIScale(wxGetDPIofHDC(ClientHDC(hwnd)));
+     }
+ 
+     return dpi;
