@@ -147,6 +147,22 @@ enum {
 	EDIT_MENU_THES_LANGS
 };
 
+void SubsTextEditCtrl::UpdateRightToLeft() {
+#if defined(__WXMSW__) && wxCHECK_VERSION(3, 1, 1)
+	// Scintilla only lays out bidirectional text (correct Arabic/Hebrew caret
+	// movement, selection and mixed-direction ordering) on its DirectWrite
+	// surface. 2709 = SCI_SETBIDIRECTIONAL, 2 = SC_BIDIRECTIONAL_R2L.
+	if (OPT_GET("Subtitle/Right To Left")->GetBool()) {
+		SetTechnology(wxSTC_TECHNOLOGY_DIRECTWRITE);
+		SendMsg(2709, 2);
+	}
+	else {
+		SendMsg(2709, 0);
+		SetTechnology(wxSTC_TECHNOLOGY_DEFAULT);
+	}
+#endif
+}
+
 SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, agi::Context *context)
 : wxStyledTextCtrl(parent, -1, wxDefaultPosition, wsize, style)
 , spellchecker(SpellCheckerFactory::GetSpellChecker())
@@ -160,6 +176,8 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	SetMarginWidth(1,0);
 	UsePopUp(false);
 	SetStyles();
+	UpdateRightToLeft();
+	rtl_slot = OPT_SUB("Subtitle/Right To Left", [this](agi::OptionValue const&) { UpdateRightToLeft(); });
 
 	// Set hotkeys
 	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_KEYMOD_CTRL);

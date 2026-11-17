@@ -420,6 +420,7 @@
 			"CPS Error Threshold" : 30
 		},
 		"Character Limit" : 40,
+		"Right To Left" : false,
 		"Default Resolution" : {
 			"Auto" : true,
 			"Height" : 720,

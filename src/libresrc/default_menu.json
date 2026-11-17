@@ -31,6 +31,9 @@
         { "command" : "edit/line/comment" },
         { "command" : "edit/line/comment/invert" },
         {},
+        { "command" : "edit/line/rtl/fix" },
+        { "command" : "edit/line/rtl/remove" },
+        {},
         { "command" : "edit/line/delete" }
     ],
     "main" : [
@@ -92,6 +95,9 @@
         { "submenu" : "main/subtitle/join lines", "text" : "Join Lines" },
         { "command" : "edit/line/recombine" },
         { "command" : "edit/line/split/by_karaoke" },
+        {},
+        { "command" : "edit/line/rtl/fix" },
+        { "command" : "edit/line/rtl/remove" },
         {},
         { "command" : "grid/fold/open_all" },
         { "command" : "grid/fold/close_all" },

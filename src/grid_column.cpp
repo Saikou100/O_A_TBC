@@ -21,6 +21,7 @@
 #include "compat.h"
 #include "include/aegisub/context.h"
 #include "options.h"
+#include "utils.h"
 #include "video_controller.h"
 #include "fold_controller.h"
 
@@ -458,6 +459,11 @@ public:
 		// Cap length and set text
 		if (str.size() > 512)
 			str = str.Left(512) + "...";
+
+		// Show Arabic/Hebrew lines in right-to-left reading order so
+		// punctuation and mixed text read correctly in the grid.
+		if (OPT_GET("Subtitle/Right To Left")->GetBool() && HasRtlText(d->Text.get()))
+			str = wxString(wchar_t(0x202B)) + str + wxString(wchar_t(0x202C));
 		return str;
 	}
 

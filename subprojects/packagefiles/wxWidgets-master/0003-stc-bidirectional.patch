@@ -1,0 +1,310 @@
+diff --git a/src/stc/PlatWX.cpp b/src/stc/PlatWX.cpp
+index d3394cf..7cbb50d 100644
+--- a/src/stc/PlatWX.cpp
++++ b/src/stc/PlatWX.cpp
+@@ -1609,9 +1609,280 @@ void SurfaceD2D::Copy(PRectangle rc, Point from, Surface& surfaceSource)
+     }
+ }
+ 
+-std::unique_ptr<IScreenLineLayout> SurfaceD2D::Layout(const IScreenLine* WXUNUSED(screenLine))
++// Bidirectional text support, ported from Scintilla's win32/PlatWin.cxx
++// (ScreenLineLayout / BlobInline) and adapted to the wx DirectWrite surface.
++namespace
+ {
+-    return {};
++
++class wxSTCBlobInline : public IDWriteInlineObject
++{
++public:
++    explicit wxSTCBlobInline(XYPOSITION width = 0.0f) : m_width(width) { }
++    wxSTCBlobInline(const wxSTCBlobInline&) = default;
++    wxSTCBlobInline& operator=(const wxSTCBlobInline&) = default;
++    virtual ~wxSTCBlobInline() { }
++
++    // IUnknown: lifetime is owned by wxSTCScreenLineLayout.
++    STDMETHODIMP QueryInterface(REFIID riid, PVOID* ppv) override
++    {
++        if ( !ppv )
++            return E_POINTER;
++        *ppv = nullptr;
++        if ( riid == IID_IUnknown )
++            *ppv = static_cast<IUnknown*>(this);
++        if ( riid == __uuidof(IDWriteInlineObject) )
++            *ppv = static_cast<IDWriteInlineObject*>(this);
++        return *ppv ? S_OK : E_NOINTERFACE;
++    }
++    STDMETHODIMP_(ULONG) AddRef() override { return 1; }
++    STDMETHODIMP_(ULONG) Release() override { return 1; }
++
++    // IDWriteInlineObject
++    COM_DECLSPEC_NOTHROW STDMETHODIMP Draw(void*, IDWriteTextRenderer*, FLOAT, FLOAT,
++                      BOOL, BOOL, IUnknown*) override
++    {
++        return S_OK;
++    }
++    COM_DECLSPEC_NOTHROW STDMETHODIMP GetMetrics(DWRITE_INLINE_OBJECT_METRICS* metrics) override
++    {
++        if ( !metrics )
++            return E_POINTER;
++        metrics->width = static_cast<FLOAT>(m_width);
++        metrics->height = 2;
++        metrics->baseline = 1;
++        metrics->supportsSideways = FALSE;
++        return S_OK;
++    }
++    COM_DECLSPEC_NOTHROW STDMETHODIMP GetOverhangMetrics(DWRITE_OVERHANG_METRICS* overhangs) override
++    {
++        if ( !overhangs )
++            return E_POINTER;
++        overhangs->left = overhangs->top = overhangs->right = overhangs->bottom = 0;
++        return S_OK;
++    }
++    COM_DECLSPEC_NOTHROW STDMETHODIMP GetBreakConditions(DWRITE_BREAK_CONDITION* before,
++                                    DWRITE_BREAK_CONDITION* after) override
++    {
++        if ( !before || !after )
++            return E_POINTER;
++        *before = DWRITE_BREAK_CONDITION_NEUTRAL;
++        *after = DWRITE_BREAK_CONDITION_NEUTRAL;
++        return S_OK;
++    }
++
++private:
++    XYPOSITION m_width;
++};
++
++IDWriteTextFormat* wxSTCFormatOfPosition(const IScreenLine* screenLine, size_t position)
++{
++    const Font* font = screenLine->FontOfPosition(position);
++    if ( !font || !font->GetID() )
++        return nullptr;
++    wxFontWithAscent* fwa = wxFontWithAscent::FromFID(font->GetID());
++    SurfaceFontDataD2D* sfd = fwa ?
++        static_cast<SurfaceFontDataD2D*>(fwa->GetSurfaceFontData()) : nullptr;
++    return sfd && sfd->Initialised() ? sfd->GetFormat() : nullptr;
++}
++
++class wxSTCScreenLineLayout : public IScreenLineLayout
++{
++public:
++    explicit wxSTCScreenLineLayout(const IScreenLine* screenLine);
++    wxSTCScreenLineLayout(const wxSTCScreenLineLayout&) = delete;
++    wxSTCScreenLineLayout& operator=(const wxSTCScreenLineLayout&) = delete;
++
++    size_t PositionFromX(XYPOSITION xDistance, bool charPosition) override;
++    XYPOSITION XFromPosition(size_t caretPosition) override;
++    std::vector<Interval> FindRangeIntervals(size_t start, size_t end) override;
++
++private:
++    void FillTextLayoutFormats(const IScreenLine* screenLine);
++    size_t GetPositionInLayout(size_t position) const
++    {
++        return UTF16Length(m_text.substr(0, position));
++    }
++
++    wxCOMPtr<IDWriteTextLayout> m_textLayout;
++    std::string m_text;
++    std::wstring m_buffer;
++    std::vector<wxSTCBlobInline> m_blobs;
++};
++
++wxSTCScreenLineLayout::wxSTCScreenLineLayout(const IScreenLine* screenLine)
++{
++    if ( !screenLine || !screenLine->Length() )
++        return;
++
++    m_text.assign(screenLine->Text(), screenLine->Length());
++
++    IDWriteTextFormat* format = wxSTCFormatOfPosition(screenLine, 0);
++    wxCOMPtr<IDWriteFactory> factory(::wxDWriteFactory());
++    if ( !factory || !format )
++        return;
++
++    // Convert to UTF-16 and replace tabs so DirectWrite does not expand them.
++    m_buffer = wxString::FromUTF8(m_text.data(), m_text.length()).ToStdWstring();
++    std::replace(m_buffer.begin(), m_buffer.end(), L'\t', L'X');
++
++    IDWriteTextLayout* layout = nullptr;
++    const HRESULT hr = factory->CreateTextLayout(m_buffer.c_str(),
++        static_cast<UINT32>(m_buffer.length()), format,
++        static_cast<FLOAT>(screenLine->Width()),
++        static_cast<FLOAT>(screenLine->Height()), &layout);
++    if ( FAILED(hr) || !layout )
++        return;
++    m_textLayout.reset(layout);
++    layout->Release(); // reset() took its own reference
++
++    FillTextLayoutFormats(screenLine);
++}
++
++void wxSTCScreenLineLayout::FillTextLayoutFormats(const IScreenLine* screenLine)
++{
++    // Reserve up front so the pointers handed to the layout stay valid.
++    const size_t numTabs = std::count(m_text.begin(), m_text.end(), '\t');
++    m_blobs.reserve(screenLine->RepresentationCount() + numTabs);
++
++    UINT32 layoutPosition = 0;
++    for ( size_t bytePosition = 0; bytePosition < screenLine->Length(); )
++    {
++        const unsigned char uch = screenLine->Text()[bytePosition];
++        unsigned int byteCount = UTF8BytesOfLead[uch];
++        if ( !byteCount )
++            byteCount = 1;
++        const UINT32 codeUnits = UTF16LengthFromUTF8ByteCount(byteCount);
++        const DWRITE_TEXT_RANGE textRange = { layoutPosition, codeUnits };
++
++        XYPOSITION representationWidth = screenLine->RepresentationWidth(bytePosition);
++        if ( representationWidth == 0.0f && uch == '\t' )
++        {
++            FLOAT x = 0.0f, y = 0.0f;
++            DWRITE_HIT_TEST_METRICS metrics {};
++            m_textLayout->HitTestTextPosition(layoutPosition, FALSE, &x, &y, &metrics);
++            representationWidth = screenLine->TabPositionAfter(x) - x;
++        }
++        if ( representationWidth > 0.0f )
++        {
++            m_blobs.push_back(wxSTCBlobInline(representationWidth));
++            m_textLayout->SetInlineObject(&m_blobs.back(), textRange);
++        }
++
++        if ( IDWriteTextFormat* format = wxSTCFormatOfPosition(screenLine, bytePosition) )
++        {
++            const UINT32 familyLen = format->GetFontFamilyNameLength();
++            std::wstring family(familyLen + 1, L'\0');
++            if ( SUCCEEDED(format->GetFontFamilyName(&family[0], familyLen + 1)) )
++                m_textLayout->SetFontFamilyName(family.c_str(), textRange);
++
++            m_textLayout->SetFontSize(format->GetFontSize(), textRange);
++            m_textLayout->SetFontWeight(format->GetFontWeight(), textRange);
++            m_textLayout->SetFontStyle(format->GetFontStyle(), textRange);
++            m_textLayout->SetFontStretch(format->GetFontStretch(), textRange);
++
++            const UINT32 localeLen = format->GetLocaleNameLength();
++            std::wstring locale(localeLen + 1, L'\0');
++            if ( SUCCEEDED(format->GetLocaleName(&locale[0], localeLen + 1)) )
++                m_textLayout->SetLocaleName(locale.c_str(), textRange);
++
++            IDWriteFontCollection* collection = nullptr;
++            if ( SUCCEEDED(format->GetFontCollection(&collection)) && collection )
++            {
++                m_textLayout->SetFontCollection(collection, textRange);
++                collection->Release();
++            }
++        }
++
++        bytePosition += byteCount;
++        layoutPosition += codeUnits;
++    }
++}
++
++size_t wxSTCScreenLineLayout::PositionFromX(XYPOSITION xDistance, bool charPosition)
++{
++    if ( !m_textLayout )
++        return 0;
++
++    BOOL isTrailingHit = FALSE;
++    BOOL isInside = FALSE;
++    DWRITE_HIT_TEST_METRICS caretMetrics {};
++    m_textLayout->HitTestPoint(static_cast<FLOAT>(xDistance), 0.0f,
++                               &isTrailingHit, &isInside, &caretMetrics);
++
++    DWRITE_HIT_TEST_METRICS hitTestMetrics {};
++    if ( isTrailingHit )
++    {
++        FLOAT caretX = 0.0f, caretY = 0.0f;
++        // Align the caret to a whole cluster.
++        m_textLayout->HitTestTextPosition(caretMetrics.textPosition, FALSE,
++                                          &caretX, &caretY, &hitTestMetrics);
++    }
++
++    size_t pos;
++    if ( charPosition )
++        pos = isTrailingHit ? hitTestMetrics.textPosition : caretMetrics.textPosition;
++    else
++        pos = isTrailingHit ? hitTestMetrics.textPosition + hitTestMetrics.length
++                            : caretMetrics.textPosition;
++
++    return UTF8PositionFromUTF16Position(m_text, pos);
++}
++
++XYPOSITION wxSTCScreenLineLayout::XFromPosition(size_t caretPosition)
++{
++    if ( !m_textLayout )
++        return 0.0;
++
++    FLOAT x = 0.0f, y = 0.0f;
++    DWRITE_HIT_TEST_METRICS caretMetrics {};
++    m_textLayout->HitTestTextPosition(
++        static_cast<UINT32>(GetPositionInLayout(caretPosition)), FALSE,
++        &x, &y, &caretMetrics);
++    return x;
++}
++
++std::vector<Interval> wxSTCScreenLineLayout::FindRangeIntervals(size_t start, size_t end)
++{
++    std::vector<Interval> ret;
++    if ( !m_textLayout || start == end )
++        return ret;
++
++    const size_t startPos = GetPositionInLayout(start);
++    const size_t endPos = GetPositionInLayout(end);
++    const size_t rangeStart = std::min(startPos, endPos);
++    const size_t rangeLength = (endPos > startPos) ? (endPos - startPos) : (startPos - endPos);
++
++    UINT32 count = 0;
++    std::vector<DWRITE_HIT_TEST_METRICS> metrics(2);
++    m_textLayout->HitTestTextRange(static_cast<UINT32>(rangeStart),
++        static_cast<UINT32>(rangeLength), 0, 0, metrics.data(),
++        static_cast<UINT32>(metrics.size()), &count);
++    if ( count == 0 )
++        return ret;
++
++    if ( metrics.size() < count )
++    {
++        metrics.resize(count);
++        m_textLayout->HitTestTextRange(static_cast<UINT32>(rangeStart),
++            static_cast<UINT32>(rangeLength), 0, 0, metrics.data(),
++            static_cast<UINT32>(metrics.size()), &count);
++    }
++
++    for ( UINT32 i = 0; i < count && i < metrics.size(); ++i )
++    {
++        Interval interval;
++        interval.left = metrics[i].left;
++        interval.right = metrics[i].left + metrics[i].width;
++        ret.push_back(interval);
++    }
++    return ret;
++}
++
++} // anonymous namespace
++
++std::unique_ptr<IScreenLineLayout> SurfaceD2D::Layout(const IScreenLine* screenLine)
++{
++    return std::make_unique<wxSTCScreenLineLayout>(screenLine);
+ }
+ 
+ void SurfaceD2D::DrawTextNoClip(PRectangle rc, Font &font_, XYPOSITION ybase,
+diff --git a/src/stc/ScintillaWX.cpp b/src/stc/ScintillaWX.cpp
+index 1395c06..fa620d8 100644
+--- a/src/stc/ScintillaWX.cpp
++++ b/src/stc/ScintillaWX.cpp
+@@ -785,6 +785,18 @@ sptr_t ScintillaWX::WndProc(unsigned int iMessage, uptr_t wParam, sptr_t lParam)
+                 }
+             }
+             return 0;
++
++        case SCI_SETBIDIRECTIONAL:
++            // Bidirectional text needs the DirectWrite surface (see
++            // SurfaceD2D::Layout in PlatWX.cpp), mirroring ScintillaWin.
++            if (technology == SC_TECHNOLOGY_DEFAULT) {
++                bidirectional = EditModel::Bidirectional::bidiDisabled;
++            } else if (wParam <= SC_BIDIRECTIONAL_R2L) {
++                bidirectional = static_cast<EditModel::Bidirectional>(wParam);
++            }
++            DropGraphics(true);
++            InvalidateStyleRedraw();
++            return 0;
+ #endif
+ 
+         case SCI_GETDIRECTFUNCTION:

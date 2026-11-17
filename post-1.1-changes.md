@@ -2,6 +2,12 @@
 
 Tracking fixes and behavior changes made after `Toshi-ban V1.1`.
 
+## 2026-11-17
+
+- Interface size: `Preferences > General > Interface size` enlarges the whole UI (100%-300%) independently of the Windows display scale, e.g. 200% makes a 4K screen at 100% look like 1080p. Needs a restart; wx master (3.3) builds on Windows only. The Windows menu bar and title bar keep the system size.
+- Right-to-left text: `Preferences > Interface > Edit Box > Right-to-left text` enables proper Arabic/Persian/Hebrew editing in the edit box (cursor, selection, mixed text) and RTL reading order in the grid.
+- New commands `Subtitle > Fix RTL (Add Direction Marks)` and `Remove RTL Marks` (also in the grid right-click menu) add/remove invisible Unicode RTL marks so punctuation is placed correctly in the video preview and in players, like Subtitle Edit.
+
 ## 2026-09-20
 
 - Windows packages now use SCXVid as the supported VapourSynth scene-change detector and no longer ship WWXD. Existing VapourSynth scripts which pass `use_scxvid=False` continue to work and are handled as SCXVid. Because the detectors are not algorithmically identical, automatically generated keyframes may differ slightly from earlier releases.

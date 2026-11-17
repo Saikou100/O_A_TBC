@@ -2809,6 +2809,50 @@ struct edit_line_comment final : public Command {
 	}
 };
 
+struct edit_line_rtl_fix final : public validate_sel_nonempty {
+	CMD_NAME("edit/line/rtl/fix")
+	STR_MENU("Fix &RTL (Add Direction Marks)")
+	STR_DISP("Fix RTL")
+	STR_HELP("Add invisible right-to-left marks to the selected Arabic, Persian or Hebrew lines so punctuation and mixed text appear on the correct side in the video and in players")
+
+	void operator()(agi::Context *c) override {
+		size_t changed = 0;
+		for (auto *line : c->selectionController->GetSelectedSet()) {
+			std::string const& text = line->Text.get();
+			if (!HasRtlText(text))
+				continue;
+			std::string fixed = AddRtlMarks(text);
+			if (fixed != text) {
+				line->Text = fixed;
+				++changed;
+			}
+		}
+		if (changed)
+			c->ass->Commit(_("fix RTL"), AssFile::COMMIT_DIAG_TEXT);
+	}
+};
+
+struct edit_line_rtl_remove final : public validate_sel_nonempty {
+	CMD_NAME("edit/line/rtl/remove")
+	STR_MENU("Remove RTL &Marks")
+	STR_DISP("Remove RTL Marks")
+	STR_HELP("Remove invisible Unicode direction marks from the selected lines")
+
+	void operator()(agi::Context *c) override {
+		size_t changed = 0;
+		for (auto *line : c->selectionController->GetSelectedSet()) {
+			std::string const& text = line->Text.get();
+			std::string cleaned = RemoveBidiMarks(text);
+			if (cleaned != text) {
+				line->Text = cleaned;
+				++changed;
+			}
+		}
+		if (changed)
+			c->ass->Commit(_("remove RTL marks"), AssFile::COMMIT_DIAG_TEXT);
+	}
+};
+
 // Flip the comment flag for each selected line individually.
 struct edit_line_comment_invert final : public Command {
 	CMD_NAME("edit/line/comment/invert")
@@ -3671,6 +3715,8 @@ namespace cmd {
 		reg(agi::make_unique<edit_line_delete>());
 		reg(agi::make_unique<edit_line_comment>());
 		reg(agi::make_unique<edit_line_comment_invert>());
+		reg(agi::make_unique<edit_line_rtl_fix>());
+		reg(agi::make_unique<edit_line_rtl_remove>());
 		reg(agi::make_unique<edit_line_duplicate>());
 		reg(agi::make_unique<edit_line_duplicate_shift>());
 		reg(agi::make_unique<edit_line_duplicate_shift_back>());

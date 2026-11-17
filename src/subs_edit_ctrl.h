@@ -32,6 +32,8 @@
 #include <vector>
 #include <wx/stc/stc.h>
 
+#include <libaegisub/signal.h>
+
 #include "ass_font_tag_selection.h"
 
 class Thesaurus;
@@ -45,6 +47,10 @@ namespace agi {
 /// @class SubsTextEditCtrl
 /// @brief A Scintilla control with spell checking and syntax highlighting
 class SubsTextEditCtrl final : public wxStyledTextCtrl {
+	/// Applies the Subtitle/Right To Left option to the control
+	void UpdateRightToLeft();
+	agi::signal::Connection rtl_slot;
+
 	/// Backend spellchecker to use
 	std::unique_ptr<agi::SpellChecker> spellchecker;
 

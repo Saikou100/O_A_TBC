@@ -49,6 +49,19 @@ wxString PrettySize(int bytes);
 
 std::string float_to_string(double val, int precision = 3);
 
+/// Whether the text (outside override blocks) contains right-to-left letters
+/// such as Arabic, Persian, Urdu or Hebrew.
+bool HasRtlText(std::string const& text);
+
+/// Insert a Unicode RIGHT-TO-LEFT EMBEDDING mark at the start of each visual
+/// line (after any leading override blocks and after every \N), the same
+/// approach Subtitle Edit uses, so renderers put punctuation on the correct side.
+std::string AddRtlMarks(std::string const& text);
+
+/// Remove Unicode bidirectional control characters (LRM, RLM, ALM, embeddings,
+/// overrides and isolates).
+std::string RemoveBidiMarks(std::string const& text);
+
 /// @brief Get the smallest power of two that is greater or equal to x
 ///
 /// Algorithm from http://bob.allegronetwork.com/prog/tricks.html
