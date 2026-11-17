@@ -1,0 +1,34 @@
+option('alsa', type: 'feature', description: 'ALSA audio output')
+option('openal', type: 'feature', description: 'OpenAL audio output')
+option('libpulse', type: 'feature', description: 'PulseAudio audio output')
+option('portaudio', type: 'feature', description: 'PortAudio audio output')
+option('directsound', type: 'feature', description: 'DirectSound audio output')
+option('xaudio2', type: 'feature', description: 'XAudio2 audio output')
+option('default_audio_output', type: 'combo', choices: ['auto', 'ALSA', 'OpenAL', 'PulseAudio', 'PortAudio', 'DirectSound', 'XAudio2'], description: 'Default audio output')
+option('soundtouch', type: 'feature', value: 'enabled', description: 'SoundTouch time-stretch support')
+
+option('ffms2', type: 'feature', description: 'FFMS2 video source')
+option('avisynth', type: 'feature', description: 'AviSynth video source')
+option('bestsource', type: 'feature', description: 'BestSource video source')
+option('vapoursynth', type: 'feature', description: 'VapourSynth video source')
+option('opencv', type: 'feature', value: 'auto', description: 'Enable OpenCV motion tracking')
+option('paddleocr', type: 'feature', value: 'auto', description: 'Enable bundled PaddleOCR image-to-text support')
+
+option('fftw3', type: 'feature', description: 'FFTW3 support')
+option('hunspell', type: 'feature', description: 'Hunspell spell checker')
+option('uchardet', type: 'feature', description: 'uchardet character encoding detection')
+option('csri', type: 'feature', description: 'CSRI support')
+option('with_mangetsu', type: 'boolean', value: false, description: 'Build/package the Mangetsu renderer library')
+option('mangetsu_path', type: 'string', value: '', description: 'Optional path to a prebuilt mangetsu.dll/libmangetsu shared library to package when with_mangetsu=true')
+
+option('system_luajit', type: 'boolean', value: false, description: 'Force using system luajit')
+option('local_boost', type: 'boolean', value: false, description: 'Force using locally compiled Boost')
+
+option('wx_version', type: 'string', value: '3.0.0', description: 'The minimum wxWidgets version to use')
+
+option('credit', type: 'string', value: '', description: 'Build credit shown in program title')
+
+option('enable_update_checker', type: 'boolean', value: true, description: 'Enable the Toshi-ban GitHub release update checker')
+
+option('build_osx_bundle', type: 'boolean', value: 'false', description: 'Package Aegisub.app on OSX')
+option('build_appimage', type: 'boolean', value: 'false', description: 'Prepare for AppImage packaging')

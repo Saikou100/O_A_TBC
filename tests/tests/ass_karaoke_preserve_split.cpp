@@ -1,0 +1,353 @@
+// Copyright (c) 2025
+//
+// Permission to use, copy, modify, and distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+#include <main.h>
+
+#include <libaegisub/character_count.h>
+
+#include "ass_dialogue.h"
+#include "ass_karaoke.h"
+
+TEST(AssKaraoke, AddSplitPreserveTimes_SplitsTextAndDuration) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = "{\\k20}abc";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(1u, kara.size());
+
+	kara.AddSplitPreserveTimes(0, 1); // split before 'b'
+	ASSERT_EQ(2u, kara.size());
+
+	auto it = kara.begin();
+	EXPECT_EQ("a", it->text);
+	EXPECT_EQ(70, it->duration);
+	++it;
+	EXPECT_EQ("bc", it->text);
+	EXPECT_EQ(130, it->duration);
+
+	EXPECT_EQ("{\\k7}a{\\k13}bc", kara.GetText());
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_LeavesOtherSyllablesUnchanged) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = "{\\k10}ab{\\k10}cd";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(2u, kara.size());
+
+	kara.AddSplitPreserveTimes(0, 1); // split "ab" into "a" + "b"
+	ASSERT_EQ(3u, kara.size());
+
+	auto it = kara.begin();
+	EXPECT_EQ("a", it->text);
+	EXPECT_EQ(50, it->duration);
+	++it;
+	EXPECT_EQ("b", it->text);
+	EXPECT_EQ(50, it->duration);
+	++it;
+	EXPECT_EQ("cd", it->text);
+	EXPECT_EQ(100, it->duration);
+	EXPECT_EQ(100, it->start_time); // original second syllable start time
+
+	EXPECT_EQ("{\\k5}a{\\k5}b{\\k10}cd", kara.GetText());
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_PreservesTagType) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = "{\\kf20}abc";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(1u, kara.size());
+
+	kara.AddSplitPreserveTimes(0, 1);
+	ASSERT_EQ(2u, kara.size());
+
+	EXPECT_EQ("{\\kf7}a{\\kf13}bc", kara.GetText());
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_UTF8Boundary) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = std::string(u8"{\\k20}あい");
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(1u, kara.size());
+
+	const std::string text = kara.begin()->text;
+	const size_t split_at = agi::IndexOfCharacter(text, 1); // boundary after first character
+
+	kara.AddSplitPreserveTimes(0, split_at);
+	ASSERT_EQ(2u, kara.size());
+
+	auto it = kara.begin();
+	EXPECT_EQ(std::string(u8"あ"), it->text);
+	++it;
+	EXPECT_EQ(std::string(u8"い"), it->text);
+
+	EXPECT_EQ(std::string(u8"{\\k10}あ{\\k10}い"), kara.GetText());
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_BoundarySplitsCreateEmptySyllables) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = "{\\k20}abc";
+
+	{
+		AssKaraoke kara(&dia, false, false);
+		ASSERT_EQ(1u, kara.size());
+
+		kara.AddSplitPreserveTimes(0, 0);
+		ASSERT_EQ(2u, kara.size());
+		EXPECT_EQ("", kara.begin()->text);
+		EXPECT_EQ(0, kara.begin()->duration);
+
+		auto it = kara.begin();
+		++it;
+		EXPECT_EQ("abc", it->text);
+		EXPECT_EQ(200, it->duration);
+		EXPECT_EQ("{\\k0}{\\k20}abc", kara.GetText());
+	}
+
+	{
+		AssKaraoke kara(&dia, false, false);
+		ASSERT_EQ(1u, kara.size());
+
+		kara.AddSplitPreserveTimes(0, kara.begin()->text.size());
+		ASSERT_EQ(2u, kara.size());
+
+		auto it = kara.begin();
+		EXPECT_EQ("abc", it->text);
+		EXPECT_EQ(200, it->duration);
+		++it;
+		EXPECT_EQ("", it->text);
+		EXPECT_EQ(0, it->duration);
+		EXPECT_EQ("{\\k20}abc{\\k0}", kara.GetText());
+	}
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_AllowsMultipleEmptySyllables) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = "{\\k20}abc";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(1u, kara.size());
+
+	// Repeated boundary splits should keep creating empty syllables.
+	kara.AddSplitPreserveTimes(0, 0);
+	kara.AddSplitPreserveTimes(1, 0);
+	ASSERT_EQ(3u, kara.size());
+	EXPECT_EQ("{\\k0}{\\k0}{\\k20}abc", kara.GetText());
+}
+
+TEST(AssKaraoke, AddSplitPreserveTimes_AllowsSplittingEmptySyllables) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 0;
+	dia.Text = "{\\k0}";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(1u, kara.size());
+	EXPECT_EQ("", kara.begin()->text);
+	EXPECT_EQ(0, kara.begin()->duration);
+
+	kara.AddSplitPreserveTimes(0, 0);
+	kara.AddSplitPreserveTimes(0, 0);
+	ASSERT_EQ(3u, kara.size());
+	EXPECT_EQ("{\\k0}{\\k0}{\\k0}", kara.GetText());
+}
+
+TEST(AssKaraoke, EmptyRestSerializesWithoutPlaceholderText) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 600;
+	dia.Text = "{\\kf20}ab{\\kf40}cd";
+
+	AssKaraoke kara(&dia, false, false);
+	kara.InsertEmptySyllable(1);
+	ASSERT_EQ(3u, kara.size());
+	EXPECT_TRUE(kara.IsEmptySyllable(1));
+
+	kara.SetTimingBoundaries(0, 600, {200, 280}, false);
+	EXPECT_EQ("{\\kf20}ab{\\kf8}{\\kf32}cd", kara.GetText());
+}
+
+TEST(AssKaraoke, EmptyRestRemovalMergesDurationCleanly) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 600;
+	dia.Text = "{\\k20}ab{\\k8}{\\k32}cd";
+
+	AssKaraoke kara(&dia, false, false);
+	ASSERT_EQ(3u, kara.size());
+	ASSERT_TRUE(kara.IsEmptySyllable(1));
+
+	kara.RemoveEmptySyllable(1);
+	ASSERT_EQ(2u, kara.size());
+	EXPECT_EQ("{\\k28}ab{\\k32}cd", kara.GetText());
+}
+
+TEST(AssKaraoke, TimingBoundariesAssignEverySyllable) {
+	AssDialogue dia;
+	dia.Start = 1000;
+	dia.End = 1500;
+	dia.Text = "{\\ko10}a{\\ko10}b{\\ko30}c";
+
+	AssKaraoke kara(&dia, false, false);
+	kara.SetTimingBoundaries(1000, 1500, {1120, 1290}, false);
+
+	EXPECT_EQ("{\\ko12}a{\\ko17}b{\\ko21}c", kara.GetText());
+}
+
+TEST(AssKaraoke, GetTextCanOmitKaraokeTags) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 500;
+	dia.Text = "{\\k20}hello{\\k30} world";
+
+	AssKaraoke kara(&dia, false, false);
+	kara.SetTagType("\\kf");
+
+	EXPECT_EQ("{\\kf20}hello{\\kf30} world", kara.GetText());
+	EXPECT_EQ("hello world", kara.GetText(false));
+}
+
+TEST(AssKaraoke, AutoSplitJapaneseKana_BasicKana) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 600;
+	dia.Text = std::string(u8"あめにじんだ");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana();
+
+	EXPECT_EQ(std::string(u8"{\\k10}あ{\\k10}め{\\k10}に{\\k10}じ{\\k10}ん{\\k10}だ"), kara.GetText());
+}
+
+TEST(AssKaraoke, AutoSplitJapaneseKana_AttachesSmallKanaButNotSmallTsuOrLongVowel) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 700;
+	dia.Text = std::string(u8"ちゃっとスーパー");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana();
+
+	EXPECT_EQ(std::string(u8"{\\k10}ちゃ{\\k10}っ{\\k10}と{\\k10}ス{\\k10}ー{\\k10}パ{\\k10}ー"), kara.GetText());
+}
+
+TEST(AssKaraoke, AutoSplitJapaneseKana_ExplicitRestMarker) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 400;
+	dia.Text = std::string(u8"あめ||にじ");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana();
+
+	EXPECT_EQ(std::string(u8"{\\k8}あ{\\k8}め{\\k8}{\\k8}に{\\k8}じ"), kara.GetText());
+}
+
+TEST(AssKaraoke, AutoSplitJapaneseKana_AttachesPunctuation) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 300;
+	dia.Text = std::string(u8"あ、い。う");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana();
+
+	EXPECT_EQ(std::string(u8"{\\k10}あ、{\\k10}い。{\\k10}う"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_AttachesBracketsDirectionally) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 300;
+	dia.Text = std::string(u8"(まちょっと)");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}(ま{\\k10}ちょっ{\\k10}と)"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_BracketsDoNotAbsorbRepeatMarkers) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 600;
+	dia.Text = std::string(u8"(心##焦がす)");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}(心{\\k10}#{\\k10}#{\\k10}焦{\\k10}が{\\k10}す)"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_BracketsRespectHardBoundaries) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 400;
+	dia.Text = std::string(u8"( #あ");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}({\\k10} {\\k10}#{\\k10}あ"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_BracketsDoNotAbsorbRestMarkers) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 500;
+	dia.Text = std::string(u8"(あめ||にじ)");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}(あ{\\k10}め{\\k10}{\\k10}に{\\k10}じ)"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_ClosingBracketDoesNotAttachToSpaceSlot) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 300;
+	dia.Text = std::string(u8"あ )");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}あ{\\k10} {\\k10})"), kara.GetText());
+}
+
+TEST(AssKaraoke, ToshikiAutoSplit_AttachesJapaneseQuotes) {
+	AssDialogue dia;
+	dia.Start = 0;
+	dia.End = 200;
+	dia.Text = std::string(u8"「スーパー」");
+
+	AssKaraoke kara(&dia, false, false);
+	kara.AutoSplitJapaneseKana(true, true, true);
+
+	EXPECT_EQ(std::string(u8"{\\k10}「スー{\\k10}パー」"), kara.GetText());
+}

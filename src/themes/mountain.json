@@ -1,0 +1,133 @@
+{
+	"Colour" : {
+		"Audio Display" : {
+			"Keyframe" : "rgb(255,0,255)",
+			"Line Boundary Inactive Line" : "rgb(190,190,190)",
+			"Line boundary End" : "rgb(0, 0, 216)",
+			"Line boundary Start" : "rgb(216, 0, 0)",
+			"Play Cursor" : "rgb(255,255,255)",
+			"Seconds Line" : "rgb(0,100,255)",
+			"Spectrum" : "Icy Blue",
+			"Syllable Boundaries" : "rgb(255,255,0)",
+			"Waveform" : "Green"
+		},
+		"Schemes" : {
+			"Green" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 128.0,
+					"Hue Scale" : 1.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 85.0,
+					"Hue Scale" : 0.0,
+					"Saturation Offset" : 255.0,
+					"Saturation Scale" : 0.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 200.0
+				}
+			},
+			"Icy Blue" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : -180.0,
+					"Hue Scale" : 0.0,
+					"Lightness Offset" : 255.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 191.0,
+					"Hue Scale" : -128.0,
+					"Saturation Offset" : 127.0,
+					"Saturation Scale" : 128.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 255.0
+				}
+			}
+		},
+		"Subtitle" : {
+			"Background" : "#0f0f0f",
+			"Syntax" : {
+				"Background" : {
+					"Brackets" : "",
+					"Comment" : "",
+					"Drawing Command" : "",
+					"Drawing X" : "",
+					"Drawing Y" : "",
+					"Error" : "rgb(255, 200, 200)",
+					"Karaoke Template" : "",
+					"Karaoke Variable" : "",
+					"Line Break" : "",
+					"Normal" : "",
+					"Parameters" : "",
+					"Slashes" : "",
+					"Tags" : ""
+				},
+				"Bold" : {
+					"Brackets" : false,
+					"Comment" : true,
+					"Drawing Command" : true,
+					"Drawing X" : false,
+					"Drawing Y" : false,
+					"Error" : false,
+					"Karaoke Template" : true,
+					"Karaoke Variable" : true,
+					"Line Break" : true,
+					"Normal" : false,
+					"Parameters" : false,
+					"Slashes" : false,
+					"Tags" : true
+				},
+				"Brackets" : "#ac8aac",
+				"Comment" : "#4c4c4c",
+				"Drawing Command" : "#8f8aac",
+				"Drawing X" : "#ac8a8c",
+				"Drawing Y" : "#8aac8b",
+				"Error" : "rgb(200, 0, 0)",
+				"Karaoke Template" : "rgb(128, 0, 192)",
+				"Karaoke Variable" : "rgb(128, 0, 192)",
+				"Line Break" : "#e7e7e7",
+				"Normal" : "#cacaca",
+				"Parameters" : "#ceb188",
+				"Slashes" : "#8aabac",
+				"Tags" : "rgb(90, 90, 90)",
+				"Underline" : {
+					"Drawing Endpoint" : true
+				}
+			}
+		},
+		"Subtitle Grid" : {
+			"Active Border" : "rgb(45, 45, 45)",
+			"Background" : {
+				"Background" : "#0f0f0f",
+				"Closed Fold" : "#191919",
+				"Comment" : "#4c4c4c",
+				"Inframe" : "#6a4b6b",
+				"Open Fold" : "#191919",
+				"Selected Comment" : "#3e5d40",
+				"Selection" : "#3e5d40"
+			},
+			"CPS Error" : "#ac8a8c",
+			"Collision" : "#cacaca",
+			"Header" : "#565271",
+			"Left Column" : "#191919",
+			"Lines" : "#ac8a8c",
+			"Selection" : "#cacaca",
+			"Standard" : "#cacaca"
+		}
+	},
+	"Id" : "mountain",
+	"Name" : "Mountain"
+}

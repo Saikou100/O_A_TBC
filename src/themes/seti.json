@@ -1,0 +1,133 @@
+{
+	"Colour" : {
+		"Audio Display" : {
+			"Keyframe" : "rgb(255,0,255)",
+			"Line Boundary Inactive Line" : "rgb(190,190,190)",
+			"Line boundary End" : "rgb(0, 0, 216)",
+			"Line boundary Start" : "rgb(216, 0, 0)",
+			"Play Cursor" : "rgb(255,255,255)",
+			"Seconds Line" : "rgb(0,100,255)",
+			"Spectrum" : "Icy Blue",
+			"Syllable Boundaries" : "rgb(255,255,0)",
+			"Waveform" : "Green"
+		},
+		"Schemes" : {
+			"Green" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 128.0,
+					"Hue Scale" : 1.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 85.0,
+					"Hue Scale" : 0.0,
+					"Saturation Offset" : 255.0,
+					"Saturation Scale" : 0.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 200.0
+				}
+			},
+			"Icy Blue" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : -180.0,
+					"Hue Scale" : 0.0,
+					"Lightness Offset" : 255.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 191.0,
+					"Hue Scale" : -128.0,
+					"Saturation Offset" : 127.0,
+					"Saturation Scale" : 128.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 255.0
+				}
+			}
+		},
+		"Subtitle" : {
+			"Background" : "#151718",
+			"Syntax" : {
+				"Background" : {
+					"Brackets" : "",
+					"Comment" : "",
+					"Drawing Command" : "",
+					"Drawing X" : "",
+					"Drawing Y" : "",
+					"Error" : "rgb(255, 200, 200)",
+					"Karaoke Template" : "",
+					"Karaoke Variable" : "",
+					"Line Break" : "",
+					"Normal" : "",
+					"Parameters" : "",
+					"Slashes" : "",
+					"Tags" : ""
+				},
+				"Bold" : {
+					"Brackets" : false,
+					"Comment" : true,
+					"Drawing Command" : true,
+					"Drawing X" : false,
+					"Drawing Y" : false,
+					"Error" : false,
+					"Karaoke Template" : true,
+					"Karaoke Variable" : true,
+					"Line Break" : true,
+					"Normal" : false,
+					"Parameters" : false,
+					"Slashes" : false,
+					"Tags" : true
+				},
+				"Brackets" : "#a074c4",
+				"Comment" : "#41535B",
+				"Drawing Command" : "#55b5db",
+				"Drawing X" : "#Cd3f45",
+				"Drawing Y" : "#9fca56",
+				"Error" : "rgb(200, 0, 0)",
+				"Karaoke Template" : "rgb(128, 0, 192)",
+				"Karaoke Variable" : "rgb(128, 0, 192)",
+				"Line Break" : "#eeeeee",
+				"Normal" : "#d6d6d6",
+				"Parameters" : "#db7b55",
+				"Slashes" : "#55dbbe",
+				"Tags" : "rgb(90, 90, 90)",
+				"Underline" : {
+					"Drawing Endpoint" : true
+				}
+			}
+		},
+		"Subtitle Grid" : {
+			"Active Border" : "rgb(45, 45, 45)",
+			"Background" : {
+				"Background" : "#151718",
+				"Closed Fold" : "#282a2b",
+				"Comment" : "#41535b",
+				"Inframe" : "#744b97",
+				"Open Fold" : "#282a2b",
+				"Selected Comment" : "#3c6900",
+				"Selection" : "#3c6900"
+			},
+			"CPS Error" : "#Cd3f45",
+			"Collision" : "#d6d6d6",
+			"Header" : "#006587",
+			"Left Column" : "#282a2b",
+			"Lines" : "#43a5d5",
+			"Selection" : "#d6d6d6",
+			"Standard" : "#d6d6d6"
+		}
+	},
+	"Id" : "seti",
+	"Name" : "Seti"
+}

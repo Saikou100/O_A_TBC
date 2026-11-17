@@ -1,0 +1,133 @@
+{
+	"Colour" : {
+		"Audio Display" : {
+			"Keyframe" : "rgb(255,0,255)",
+			"Line Boundary Inactive Line" : "rgb(190,190,190)",
+			"Line boundary End" : "rgb(0, 0, 216)",
+			"Line boundary Start" : "rgb(216, 0, 0)",
+			"Play Cursor" : "rgb(255,255,255)",
+			"Seconds Line" : "rgb(0,100,255)",
+			"Spectrum" : "Icy Blue",
+			"Syllable Boundaries" : "rgb(255,255,0)",
+			"Waveform" : "Green"
+		},
+		"Schemes" : {
+			"Green" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 128.0,
+					"Hue Scale" : 1.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 85.0,
+					"Hue Scale" : 0.0,
+					"Saturation Offset" : 255.0,
+					"Saturation Scale" : 0.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 200.0
+				}
+			},
+			"Icy Blue" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : -180.0,
+					"Hue Scale" : 0.0,
+					"Lightness Offset" : 255.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 191.0,
+					"Hue Scale" : -128.0,
+					"Saturation Offset" : 127.0,
+					"Saturation Scale" : 128.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 255.0
+				}
+			}
+		},
+		"Subtitle" : {
+			"Background" : "rgb(33, 33, 33)",
+			"Syntax" : {
+				"Background" : {
+					"Brackets" : "",
+					"Comment" : "",
+					"Drawing Command" : "",
+					"Drawing X" : "",
+					"Drawing Y" : "",
+					"Error" : "rgb(255, 200, 200)",
+					"Karaoke Template" : "",
+					"Karaoke Variable" : "",
+					"Line Break" : "",
+					"Normal" : "",
+					"Parameters" : "",
+					"Slashes" : "",
+					"Tags" : ""
+				},
+				"Bold" : {
+					"Brackets" : false,
+					"Comment" : true,
+					"Drawing Command" : true,
+					"Drawing X" : false,
+					"Drawing Y" : false,
+					"Error" : false,
+					"Karaoke Template" : true,
+					"Karaoke Variable" : true,
+					"Line Break" : true,
+					"Normal" : false,
+					"Parameters" : false,
+					"Slashes" : false,
+					"Tags" : true
+				},
+				"Brackets" : "rgb(118, 143, 255)",
+				"Comment" : "rgb(141, 141, 141)",
+				"Drawing Command" : "rgb(0, 0, 0)",
+				"Drawing X" : "rgb(90, 40, 40)",
+				"Drawing Y" : "rgb(40, 90, 40)",
+				"Error" : "rgb(200, 0, 0)",
+				"Karaoke Template" : "rgb(128, 0, 192)",
+				"Karaoke Variable" : "rgb(128, 0, 192)",
+				"Line Break" : "rgb(110, 118, 129)",
+				"Normal" : "rgb(190, 190, 190)",
+				"Parameters" : "rgb(146, 222, 145)",
+				"Slashes" : "rgb(255, 174, 238)",
+				"Tags" : "rgb(90, 90, 90)",
+				"Underline" : {
+					"Drawing Endpoint" : true
+				}
+			}
+		},
+		"Subtitle Grid" : {
+			"Active Border" : "rgb(45, 45, 45)",
+			"Background" : {
+				"Background" : "rgb(45, 45, 45)",
+				"Closed Fold" : "rgb(72, 79, 88)",
+				"Comment" : "rgb(32, 28, 39)",
+				"Inframe" : "rgb(79, 79, 79)",
+				"Open Fold" : "rgb(72, 79, 88)",
+				"Selected Comment" : "rgb(85, 48, 152)",
+				"Selection" : "rgb(133, 110, 167)"
+			},
+			"CPS Error" : "rgb(255,0,0)",
+			"Collision" : "rgb(190, 190, 190)",
+			"Header" : "rgb(49, 102, 132)",
+			"Left Column" : "rgb(85, 109, 88)",
+			"Lines" : "rgb(0, 0, 0)",
+			"Selection" : "rgb(190, 190, 190)",
+			"Standard" : "rgb(190, 190, 190)"
+		}
+	},
+	"Id" : "poppo",
+	"Name" : "Poppo"
+}

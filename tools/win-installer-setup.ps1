@@ -1,0 +1,308 @@
+#!/usr/bin/env powershell
+
+param (
+  [Parameter(Position = 0)]
+  [string]$BuildRoot,
+  [Parameter(Position = 1)]
+  [string]$SourceRoot,
+  [switch]$SkipOCR
+)
+
+$InstallerDir = Join-Path $SourceRoot "packages\win_installer" | Resolve-Path
+$DepsDir = Join-Path $BuildRoot "installer-deps"
+if (!(Test-Path $DepsDir)) {
+	New-Item -ItemType Directory -Path $DepsDir
+}
+
+$AssDrawDir = Join-Path $DepsDir "assdraw"
+$AssDrawExe = Join-Path $AssDrawDir "ASSDraw3.exe"
+if (!(Test-Path -LiteralPath $AssDrawExe -PathType Leaf)) {
+	throw "Bundled ASSDraw is missing at $AssDrawExe. Run tools\build-assdraw.ps1 before Windows packaging."
+}
+$AssDrawPayload = @(Get-ChildItem -LiteralPath $AssDrawDir -File)
+if ($AssDrawPayload.Count -ne 1 -or $AssDrawPayload[0].Name -cne "ASSDraw3.exe") {
+	throw "Bundled ASSDraw staging must contain ASSDraw3.exe and no other runtime files."
+}
+
+$Env:BUILD_ROOT = $BuildRoot
+$Env:SOURCE_ROOT = $SourceRoot
+
+Set-Location $DepsDir
+
+$GitHeaders = @{}
+if (Test-Path 'Env:GITHUB_TOKEN') {
+	$GitHeaders = @{ 'Authorization' = 'Bearer ' + $Env:GITHUB_TOKEN }
+}
+
+function Invoke-WebRequestWithRetry {
+	param(
+		[Parameter(Mandatory = $true)][string]$Uri,
+		[Parameter(Mandatory = $true)][string]$OutFile,
+		[hashtable]$Headers = $null,
+		[int]$MaxAttempts = 5,
+		[int]$InitialDelaySeconds = 5
+	)
+
+	for ($attempt = 1; $attempt -le $MaxAttempts; ++$attempt) {
+		try {
+			if ($Headers) {
+				Invoke-WebRequest $Uri -OutFile $OutFile -UseBasicParsing -Headers $Headers
+			}
+			else {
+				Invoke-WebRequest $Uri -OutFile $OutFile -UseBasicParsing
+			}
+			return
+		}
+		catch {
+			if ($attempt -ge $MaxAttempts) {
+				throw
+			}
+			$delay = [math]::Min(120, $InitialDelaySeconds * [math]::Pow(2, $attempt - 1))
+			Write-Host "Download failed for $Uri (attempt $attempt of $MaxAttempts). Retrying in $delay seconds..."
+			Start-Sleep -Seconds $delay
+		}
+	}
+}
+
+function Get-Sha256Hash {
+	param(
+		[Parameter(Mandatory = $true)][string]$Path
+	)
+
+	$resolved = (Resolve-Path -LiteralPath $Path).ProviderPath
+	$stream = [System.IO.File]::OpenRead($resolved)
+	try {
+		$sha256 = [System.Security.Cryptography.SHA256]::Create()
+		try {
+			$hash = $sha256.ComputeHash($stream)
+			return [System.BitConverter]::ToString($hash).Replace("-", "").ToLowerInvariant()
+		}
+		finally {
+			$sha256.Dispose()
+		}
+	}
+	finally {
+		$stream.Dispose()
+	}
+}
+
+function Assert-FileHash {
+	param(
+		[Parameter(Mandatory = $true)][string]$Path,
+		[Parameter(Mandatory = $true)][string]$ExpectedSha256
+	)
+
+	$actual = Get-Sha256Hash -Path $Path
+	if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+		throw "SHA256 mismatch for $Path. Expected $ExpectedSha256, got $actual."
+	}
+}
+
+# DepCtrl: also retarget a cached 0.6.x checkout, discarding the old local patch.
+$DependencyControlVersion = "v0.9.0"
+if (!(Test-Path DependencyControl)) {
+	git clone --depth 1 --branch $DependencyControlVersion https://github.com/TypesettingTools/DependencyControl.git
+	if ($LASTEXITCODE -ne 0) { throw "DependencyControl clone failed." }
+}
+else {
+	git -C DependencyControl fetch --depth 1 origin "refs/tags/${DependencyControlVersion}:refs/tags/${DependencyControlVersion}"
+	if ($LASTEXITCODE -ne 0) { throw "DependencyControl tag fetch failed." }
+}
+git -C DependencyControl checkout --force $DependencyControlVersion
+if ($LASTEXITCODE -ne 0) { throw "DependencyControl checkout failed." }
+# This is our dedicated installer dependency checkout, not user Automation data.
+$DepCtrlCheckout = (Resolve-Path -LiteralPath (Join-Path $DepsDir "DependencyControl")).ProviderPath
+$ResolvedDepsDir = (Resolve-Path -LiteralPath $DepsDir).ProviderPath
+if ((Split-Path -Parent $DepCtrlCheckout) -ne $ResolvedDepsDir) { throw "Unexpected DependencyControl checkout path." }
+git -C $DepCtrlCheckout clean -fd -- modules macros
+if ($LASTEXITCODE -ne 0) { throw "DependencyControl source cleanup failed." }
+
+# Legacy external Automation helpers used by third-party scripts. New DepCtrl
+# implements its own replacements, but it does not provide the old module names
+# such as requireffi.requireffi and BM.BadMutex. Keep the legacy distribution
+# separate from the v0.9.0 source checkout, and never clean users' libraries.
+$LegacyVersion = "v0.6.4-alpha"
+$LegacyArchiveName = "DependencyControl-v0.6.4-Win64.7z"
+$LegacyArchiveUrl = "https://github.com/TypesettingTools/DependencyControl/releases/download/$LegacyVersion/$LegacyArchiveName"
+$LegacyRoot = Join-Path $DepsDir "LegacyAutomation"
+$LegacyInclude = Join-Path $LegacyRoot "include"
+$LegacyExpected = @(
+    "requireffi\requireffi.lua",
+    "BM\BadMutex.lua", "BM\BadMutex\BadMutex.dll",
+    "PT\PreciseTimer.lua", "PT\PreciseTimer\PreciseTimer.dll",
+    "DM\DownloadManager.lua", "DM\DownloadManager\DownloadManager.dll"
+)
+$needLegacy = @($LegacyExpected | Where-Object { !(Test-Path -LiteralPath (Join-Path $LegacyInclude $_) -PathType Leaf) }).Count -gt 0
+if ($needLegacy) {
+    New-Item -ItemType Directory -Path $LegacyInclude -Force | Out-Null
+    $LegacyArchive = Join-Path $LegacyRoot $LegacyArchiveName
+    $LegacyExtract = Join-Path $LegacyRoot "extracted"
+    Invoke-WebRequestWithRetry -Uri $LegacyArchiveUrl -OutFile $LegacyArchive
+    # Size is from the official immutable release asset's GitHub metadata.
+    if ((Get-Item -LiteralPath $LegacyArchive).Length -ne 254032) {
+        throw "The pinned legacy Automation archive has an unexpected size."
+    }
+    if (Test-Path -LiteralPath $LegacyExtract) {
+        Remove-Item -LiteralPath $LegacyExtract -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $LegacyExtract -Force | Out-Null
+    & 7z x $LegacyArchive "-o$LegacyExtract" -y | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not extract pinned legacy Automation modules." }
+    foreach ($spec in @(
+        @{ namespace = "requireffi"; entry = "requireffi.lua" },
+        @{ namespace = "BM"; entry = "BadMutex.lua" },
+        @{ namespace = "PT"; entry = "PreciseTimer.lua" },
+        @{ namespace = "DM"; entry = "DownloadManager.lua" }
+    )) {
+        $found = @(Get-ChildItem -LiteralPath $LegacyExtract -Recurse -File |
+            Where-Object { $_.Name -ceq $spec.entry -and $_.Directory.Name -ceq $spec.namespace })
+        if ($found.Count -ne 1) {
+            throw "Expected one $($spec.namespace) legacy module from the official archive; got $($found.Count)."
+        }
+        # Select only helper folders. Do not stage the old DependencyControl code.
+        $target = Join-Path $LegacyInclude $spec.namespace
+        if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+        Copy-Item -LiteralPath $found[0].Directory.FullName -Destination $target -Recurse
+    }
+    Remove-Item -LiteralPath $LegacyExtract -Recurse -Force
+    Remove-Item -LiteralPath $LegacyArchive -Force
+}
+foreach ($entry in $LegacyExpected) {
+    if (!(Test-Path -LiteralPath (Join-Path $LegacyInclude $entry) -PathType Leaf)) {
+        throw "Missing pinned legacy Automation helper: $entry"
+    }
+}
+
+# YUtils
+if (!(Test-Path YUtils)) {
+	git clone https://github.com/TypesettingTools/YUtils.git
+}
+
+# luajson
+if (!(Test-Path luajson)) {
+	git clone https://github.com/harningt/luajson.git
+}
+
+# Avisynth
+if (!(Test-Path AviSynthPlus64)) {
+	$avsUrl = "https://github.com/AviSynth/AviSynthPlus/releases/download/v3.7.3/AviSynthPlus_3.7.3_20230715-filesonly.7z"
+	Invoke-WebRequestWithRetry -Uri $avsUrl -OutFile AviSynthPlus.7z
+	7z x AviSynthPlus.7z
+	Rename-Item (Get-ChildItem -Filter "AviSynthPlus_*" -Directory) AviSynthPlus64
+	Remove-Item AviSynthPlus.7z
+}
+
+# VSFilter
+if (!(Test-Path VSFilter)) {
+	$vsFilterDir = New-Item -ItemType Directory VSFilter
+	Set-Location $vsFilterDir
+	$vsFilterReleases = Invoke-WebRequest "https://api.github.com/repos/pinterf/xy-VSFilter/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$vsFilterUrl = $vsFilterReleases.assets[0].browser_download_url
+	Invoke-WebRequestWithRetry -Uri $vsFilterUrl -OutFile VSFilter.7z
+	7z x VSFilter.7z
+	Remove-Item VSFilter.7z
+	Set-Location $DepsDir
+}
+
+### VapourSynth plugins
+
+# L-SMASH-Works
+if (!(Test-Path L-SMASH-Works)) {
+	New-Item -ItemType Directory L-SMASH-Works
+	$lsmasReleases = Invoke-WebRequest "https://api.github.com/repos/AkarinVS/L-SMASH-Works/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$lsmasUrl = "https://github.com/AkarinVS/L-SMASH-Works/releases/download/" + $lsmasReleases.tag_name + "/release-x86_64-cachedir-cwd.zip"
+	Invoke-WebRequestWithRetry -Uri $lsmasUrl -OutFile release-x86_64-cachedir-cwd.zip
+	Expand-Archive -LiteralPath release-x86_64-cachedir-cwd.zip -DestinationPath L-SMASH-Works
+	Remove-Item release-x86_64-cachedir-cwd.zip
+}
+
+# BestSource
+$BestSourceVersion = "R17"
+$BestSourceArchive = "BestSource-$BestSourceVersion.7z"
+$BestSourceUrl = "https://github.com/vapoursynth/bestsource/releases/download/$BestSourceVersion/$BestSourceArchive"
+$BestSourceSha256 = "562014b7875941f4638489a20412ed20eed40d9179a9230def61a1245713da21"
+$BestSourceDll = Join-Path $DepsDir "BestSource\BestSource.dll"
+if (!(Test-Path $BestSourceDll)) {
+	$bsDir = Join-Path $DepsDir "BestSource"
+	New-Item -ItemType Directory -Path $bsDir -Force | Out-Null
+	Set-Location $bsDir
+	Invoke-WebRequestWithRetry -Uri $BestSourceUrl -OutFile $BestSourceArchive
+	Assert-FileHash -Path $BestSourceArchive -ExpectedSha256 $BestSourceSha256
+	7z x $BestSourceArchive -y
+	if(!$?) { Exit $LASTEXITCODE }
+	Remove-Item $BestSourceArchive
+	if (!(Test-Path "BestSource.dll")) {
+		throw "BestSource archive $BestSourceArchive did not contain BestSource.dll."
+	}
+	Set-Location $DepsDir
+}
+
+# SCXVid
+if (!(Test-Path SCXVid)) {
+	$scxDir = New-Item -ItemType Directory SCXVid
+	Set-Location $scxDir
+	$scxReleases = Invoke-WebRequest "https://api.github.com/repos/dubhatervapoursynth/vapoursynth-scxvid/releases?per_page=20" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$scxAsset = $null
+	foreach ($scxRelease in $scxReleases) {
+		$scxAsset = $scxRelease.assets | Where-Object { $_.name -like "*win64*.7z" } | Select-Object -First 1
+		if ($scxAsset) { break }
+	}
+	if (!$scxAsset) {
+		throw "Could not find a Windows x64 SCXVid archive in the published release assets."
+	}
+	$scxUrl = $scxAsset.browser_download_url
+	Invoke-WebRequestWithRetry -Uri $scxUrl -OutFile vapoursynth-scxvid-v1-win64.7z
+	7z x vapoursynth-scxvid-v1-win64.7z
+	Remove-Item vapoursynth-scxvid-v1-win64.7z
+	if (!(Test-Path "libscxvid.dll")) {
+		throw "SCXVid archive did not contain libscxvid.dll."
+	}
+	Set-Location $DepsDir
+}
+
+# VC++ redistributable
+if (!(Test-Path VC_redist)) {
+	$redistDir = New-Item -ItemType Directory VC_redist
+	Invoke-WebRequestWithRetry -Uri "https://aka.ms/vs/17/release/VC_redist.x64.exe" -OutFile "$redistDir\VC_redist.x64.exe"
+}
+
+# XAudio2 redistributable
+if (!(Test-Path XAudio2_redist)) {
+	New-Item -ItemType Directory XAudio2_redist
+	Invoke-WebRequestWithRetry -Uri "https://www.nuget.org/api/v2/package/Microsoft.XAudio2.Redist/1.2.11" -OutFile XAudio2Redist.zip
+	Expand-Archive -LiteralPath XAudio2Redist.zip -DestinationPath XAudio2_redist
+	Remove-Item XAudio2Redist.zip
+}
+
+# dictionaries
+if (!(Test-Path dictionaries)) {
+	New-Item -ItemType Directory dictionaries
+	Invoke-WebRequestWithRetry -Uri "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.aff" -OutFile dictionaries/en_US.aff
+	Invoke-WebRequestWithRetry -Uri "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.dic" -OutFile dictionaries/en_US.dic
+}
+
+# PaddleOCR runtime and bundled models
+if ($SkipOCR -or $Env:AEGISUB_SKIP_OCR_PACKAGE -eq "1") {
+	Write-Output "Skipping - OCR runtime package assets"
+}
+else {
+	$OcrRuntimeSetup = Join-Path $SourceRoot "tools\ocr\download_paddleocr_windows.ps1"
+	& $OcrRuntimeSetup -DestinationDir (Join-Path $DepsDir "ocr")
+	if(!$?) { Exit $LASTEXITCODE }
+}
+
+# localization
+Set-Location $BuildRoot
+meson compile aegisub-gmo
+if(!$?) { Exit $LASTEXITCODE }
+
+# OpenCV runtime DLLs for Motion Track
+$OpenCVRuntimeDir = Join-Path $BuildRoot "opencv-runtime"
+$OpenCVRuntimeSetup = Join-Path $SourceRoot "tools\copy-opencv-runtime.ps1"
+& $OpenCVRuntimeSetup -DestinationDir $OpenCVRuntimeDir
+if(!$?) { Exit $LASTEXITCODE }
+
+# Invoke InnoSetup
+$IssUrl = Join-Path $InstallerDir "aegisub_depctrl.iss"
+iscc $IssUrl
+if(!$?) { Exit $LASTEXITCODE }

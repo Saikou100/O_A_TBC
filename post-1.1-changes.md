@@ -1,0 +1,26 @@
+# Post 1.1 Changes
+
+Tracking fixes and behavior changes made after `Toshi-ban V1.1`.
+
+## 2026-09-20
+
+- Windows packages now use SCXVid as the supported VapourSynth scene-change detector and no longer ship WWXD. Existing VapourSynth scripts which pass `use_scxvid=False` continue to work and are handled as SCXVid. Because the detectors are not algorithmically identical, automatically generated keyframes may differ slightly from earlier releases.
+
+## 2026-02-10
+
+- Fast naming actor commit fix: empty actor input no longer falls back to the last-used MRU actor.
+  - File: `src/actor_MRU.cpp`
+- Visual tool/panning input fix: video panning now only activates with middle mouse input; left-drag no longer incorrectly pans.
+  - File: `src/video_display.cpp`
+- `video/play/line` playback stability fixes during undo/redo:
+  - Preserve range playback mode when frame restore happens while playing.
+  - Avoid unnecessary jump/stop-restart cycle during undo/redo if playback is already continuing.
+  - Files: `src/video_controller.cpp`, `src/subs_controller.cpp`
+- Dialog Esc-key behavior fixes:
+  - Linked files load/unload prompt now supports Esc as cancel/no.
+  - Style import resolution mismatch prompt now supports Esc as cancel.
+  - Files: `src/project.cpp`, `src/dialog_style_manager.cpp`
+- Added motion tracking via openCV.
+- Added Image2Text(OCR) via PaddleOCR.
+- Fixed a partial coloring bug where starting a selection immediately after an override block could inject incomplete color tags.
+- Added Alignment Picker, a quick way to set `\an1`–`\an9` alignment tags using Ctrl+Alt with arrow keys, number keys, or numpad keys. Opposite arrow keys set `\an5`.

@@ -1,0 +1,23 @@
+# Install bundled theme preset JSONs into the Aegisub data directory.
+
+themes = files(
+  'aegisub_default.json',
+  'ayu_dark.json',
+  'ayu_light.json',
+  'ayu_mirage.json',
+  'catppuccin_latte.json',
+  'catppuccin_mocha.json',
+  'dark_mode_unofficial.json',
+  'dracula.json',
+  'mountain.json',
+  'poppo.json',
+  'sakura.json',
+  'seti.json',
+  'solarized_light.json',
+  'zenburn.json',
+)
+
+install_data(
+  themes,
+  install_dir: dataroot / 'themes',
+)

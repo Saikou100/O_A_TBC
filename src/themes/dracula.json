@@ -1,0 +1,140 @@
+{
+	"Colour" : {
+		"Audio Display" : {
+			"Keyframe" : "rgb(255,0,255)",
+			"Line Boundary Inactive Line" : "rgb(190,190,190)",
+			"Line boundary End" : "rgb(0, 0, 216)",
+			"Line boundary Start" : "rgb(216, 0, 0)",
+			"Play Cursor" : "rgb(255,255,255)",
+			"Seconds Line" : "rgb(0,100,255)",
+			"Spectrum" : "Icy Blue",
+			"Syllable Boundaries" : "rgb(255,255,0)",
+			"Waveform" : "Green"
+		},
+		"Schemes" : {
+			"Green" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 128.0,
+					"Hue Scale" : 1.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 85.0,
+					"Hue Scale" : 0.0,
+					"Saturation Offset" : 255.0,
+					"Saturation Scale" : 0.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 200.0
+				}
+			},
+			"Icy Blue" : {
+				"Inverse" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : -180.0,
+					"Hue Scale" : 0.0,
+					"Lightness Offset" : 255.0,
+					"Lightness Scale" : -1.0,
+					"Saturation Offset" : 0.0,
+					"Saturation Scale" : -1.0
+				},
+				"Normal" : {
+					"Alpha Offset" : 0.0,
+					"Alpha Scale" : 1.0,
+					"Hue Offset" : 191.0,
+					"Hue Scale" : -128.0,
+					"Saturation Offset" : 127.0,
+					"Saturation Scale" : 128.0,
+					"Lightness Offset" : 0.0,
+					"Lightness Scale" : 255.0
+				}
+			}
+		},
+		"Subtitle" : {
+			"Background" : "#21222c",
+			"Syntax" : {
+				"Background" : {
+					"Brackets" : "",
+					"Comment" : "",
+					"Drawing Command" : "",
+					"Drawing X" : "",
+					"Drawing Y" : "",
+					"Error" : "rgb(255, 200, 200)",
+					"Karaoke Template" : "",
+					"Karaoke Variable" : "",
+					"Line Break" : "",
+					"Normal" : "",
+					"Parameters" : "",
+					"Slashes" : "",
+					"Tags" : ""
+				},
+				"Bold" : {
+					"Brackets" : false,
+					"Comment" : true,
+					"Drawing Command" : true,
+					"Drawing X" : false,
+					"Drawing Y" : false,
+					"Error" : false,
+					"Karaoke Template" : true,
+					"Karaoke Variable" : true,
+					"Line Break" : true,
+					"Normal" : false,
+					"Parameters" : false,
+					"Slashes" : false,
+					"Tags" : true
+				},
+				"Brackets" : "#ff79c6",
+				"Comment" : "#4D4F68",
+				"Drawing Command" : "#bd93f9",
+				"Drawing X" : "#ff5555",
+				"Drawing Y" : "#50fa7b",
+				"Error" : "rgb(200, 0, 0)",
+				"Karaoke Template" : "rgb(128, 0, 192)",
+				"Karaoke Variable" : "rgb(128, 0, 192)",
+				"Line Break" : "#f8f8f2",
+				"Normal" : "#E9E9F4",
+				"Parameters" : "#f1fa8c",
+				"Slashes" : "#8be9fd",
+				"Tags" : "rgb(90, 90, 90)",
+				"Underline" : {
+					"Drawing Endpoint" : true
+				}
+			}
+		},
+		"Subtitle Grid" : {
+			"Active Border" : "rgb(45, 45, 45)",
+			"Background" : {
+				"Background" : "#21222c",
+				"Closed Fold" : "#37414d",
+				"Comment" : "#4D4F68",
+				"Inframe" : "#3e3545",
+				"Open Fold" : "#37414d",
+				"Selected Comment" : "#405e42",
+				"Selection" : "#405e42"
+			},
+			"CPS Error" : "#ff6e6e",
+			"Collision" : "#E9E9F4",
+			"Header" : "#715696",
+			"Left Column" : "#282a36",
+			"Lines" : "#626483",
+			"Selection" : "#E9E9F4",
+			"Standard" : "#E9E9F4"
+		},
+		"Visual Tools" : {
+			"Highlight Primary" : "rgb(255, 169, 40)",
+			"Highlight Secondary" : "rgb(255, 253, 185)",
+			"Lines Primary" : "rgb(187, 0, 0)",
+			"Lines Secondary" : "rgb(106, 32, 19)",
+			"Shaded Area Alpha" : 0.5
+		}
+	},
+	"Id" : "dracula",
+	"Name" : "Dracula"
+}

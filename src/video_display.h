@@ -1,0 +1,273 @@
+// Copyright (c) 2005-2010, Rodrigo Braz Monteiro
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//   * Redistributions of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//   * Redistributions in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//   * Neither the name of the Aegisub Group nor the names of its contributors
+//     may be used to endorse or promote products derived from this software
+//     without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// Aegisub Project http://www.aegisub.org/
+
+/// @file video_display.h
+/// @see video_display.cpp
+/// @ingroup video main_ui
+///
+
+#include <libaegisub/signal.h>
+
+#include "vector2d.h"
+#include "visual_tool_vector_clip.h"
+#include "ocr/ocr_result.h"
+#include "value_event.h"
+
+#include <memory>
+#include <set>
+#include <string>
+#include <typeinfo>
+#include <utility>
+#include <vector>
+#include <wx/glcanvas.h>
+
+// Prototypes
+class AssDialogue;
+class RetinaHelper;
+class OpenGLText;
+class VideoController;
+class VideoOutGL;
+class VisualToolBase;
+class wxComboBox;
+class wxTextCtrl;
+class wxToolBar;
+struct FrameReadyEvent;
+struct VideoFrame;
+
+struct Image2TextThreadResult {
+	ocr::OCRResult result;
+	int frame_number = -1;
+	bool detect_only = false;
+};
+
+enum class Image2TextState {
+	Off,
+	Loading,
+	Ready,
+	Error
+};
+
+enum class Image2TextMode {
+	Recognize,
+	DetectOnly
+};
+
+namespace agi {
+	struct Context;
+	class OptionValue;
+}
+
+class VideoDisplay final : public wxGLCanvas {
+	/// Signals the display is connected to
+	std::vector<agi::signal::Connection> connections;
+
+	const agi::OptionValue* autohideTools;
+
+	agi::Context *con;
+
+	std::unique_ptr<wxMenu> context_menu;
+
+	/// The size of the video in screen at the current zoom level, which may not
+	/// be the same as the actual client size of the display
+	wxSize videoSize;
+
+	Vector2D last_mouse_pos, mouse_pos;
+
+	/// Screen pixels between the left of the canvas and the left of the video
+	int viewport_left = 0;
+	/// The width of the video in screen pixels
+	int viewport_width = 0;
+	/// Screen pixels between the bottom of the canvas and the bottom of the video; used for glViewport
+	int viewport_bottom = 0;
+	/// Screen pixels between the bottom of the canvas and the top of the video; used for coordinate space conversion
+	int viewport_top = 0;
+	/// The height of the video in screen pixels
+	int viewport_height = 0;
+
+	/// The current window zoom level, where 1.0 = 100%
+	double windowZoomValue;
+	/// The current video zoom level, where 1.0 = 100% relative to the display window size
+	double videoZoomValue;
+
+	/// The last position of the mouse, when dragging
+	Vector2D pan_last_pos;
+	/// True if middle mouse button is down, and we should update pan_{x,y}
+	bool panning = false;
+	/// The current video pan offset width
+	int pan_x = 0;
+	/// The current video pan offset height
+	int pan_y = 0;
+
+	/// The video renderer
+	std::unique_ptr<VideoOutGL> videoOut;
+
+	/// The active visual typesetting tool
+	std::unique_ptr<VisualToolBase> tool;
+	/// The toolbar used by individual typesetting tools
+	wxToolBar* toolBar;
+
+	/// The OpenGL context for this display
+	std::unique_ptr<wxGLContext> glContext;
+
+	/// The dropdown box for selecting zoom levels
+	wxComboBox *zoomBox;
+
+	/// Whether the display can be freely resized by the user
+	bool freeSize;
+
+	/// Frame which will replace the currently visible frame on the next render
+	std::shared_ptr<VideoFrame> pending_frame;
+
+	std::unique_ptr<RetinaHelper> retina_helper;
+	std::unique_ptr<OpenGLText> image2text_text;
+	int scale_factor;
+	agi::signal::Connection scale_factor_connection;
+
+	Image2TextState image2text_state = Image2TextState::Off;
+	std::vector<ocr::OCRLine> image2text_regions;
+	std::vector<bool> image2text_masked;
+	std::set<size_t> image2text_selected;
+	int image2text_hovered = -1;
+	bool image2text_dragging = false;
+	bool image2text_drag_additive = false;
+	Vector2D image2text_drag_start;
+	Vector2D image2text_drag_current;
+	std::string image2text_error;
+	AssDialogue *image2text_anchor_line = nullptr;
+	Image2TextMode image2text_mode = Image2TextMode::Recognize;
+	int image2text_ocr_frame = -1;
+	int image2text_ocr_time = 0;
+	int image2text_one_frame_ms = 100;
+	int image2text_script_w = 0;
+	int image2text_script_h = 0;
+	int image2text_video_w = 0;
+	int image2text_video_h = 0;
+
+	/// @brief Draw an overscan mask
+	/// @param horizontal_percent The percent of the video reserved horizontally
+	/// @param vertical_percent The percent of the video reserved vertically
+	void DrawOverscanMask(float horizontal_percent, float vertical_percent) const;
+	void DrawImage2TextOverlay();
+	void DrawImage2TextMessage(std::string const& message, bool error);
+	void DrawImage2TextRegion(size_t index);
+
+	/// Upload the image for the current frame to the video card
+	void UploadFrameData(FrameReadyEvent&);
+	void OnImage2TextComplete(ValueEvent<Image2TextThreadResult>& event);
+	void StartImage2Text(bool detect_only);
+
+	/// @brief Initialize the gl context and set the active context to this one
+	/// @return Could the context be set?
+	bool InitContext();
+
+	/// @brief Set the size of the display based on the current zoom and video resolution
+	void UpdateSize();
+	void PositionVideo();
+	/// Set the zoom level to that indicated by the dropdown
+	void SetZoomFromBox(wxCommandEvent&);
+	/// Set the zoom level to that indicated by the text
+	void SetZoomFromBoxText(wxCommandEvent&);
+
+	/// @brief Key event handler
+	void OnKeyDown(wxKeyEvent &event);
+	/// @brief Mouse event handler
+	void OnMouseEvent(wxMouseEvent& event);
+	void OnMouseWheel(wxMouseEvent& event);
+	void OnMouseLeave(wxMouseEvent& event);
+	/// @brief Recalculate video positioning and scaling when the available area or zoom changes
+	void OnSizeEvent(wxSizeEvent &event);
+	void OnContextMenu(wxContextMenuEvent&);
+	bool HandleImage2TextMouse(wxMouseEvent& event);
+	bool HandleImage2TextKey(wxKeyEvent& event);
+	void OpenImage2TextMenu(wxPoint const& point);
+	void CopyImage2TextSelection(bool line_breaks);
+	void MaskImage2TextSelection();
+	void ClearImage2TextSelection();
+	void ExitImage2Text();
+	void ClearImage2TextState(bool render);
+	void CancelImage2TextIfFrameChanged(bool render);
+	AssDialogue *LiveImage2TextLine(AssDialogue *line) const;
+	AssDialogue *Image2TextInsertionLine() const;
+	std::string Image2TextMaskDrawing() const;
+	void SelectAllImage2TextRegions();
+	void SelectImage2TextRegionAt(Vector2D const& point, bool clear_first);
+	void SelectImage2TextDragIntersections();
+	int HitTestImage2Text(Vector2D const& point) const;
+	bool Image2TextPointInRegion(Vector2D const& point, ocr::OCRLine const& line) const;
+	bool Image2TextDragIntersects(size_t index) const;
+	Vector2D Image2TextToFrame(Vector2D const& point) const;
+	Vector2D Image2TextToDisplay(std::pair<int, int> const& point) const;
+	std::pair<Vector2D, Vector2D> Image2TextBounds(ocr::OCRLine const& line) const;
+	std::vector<ocr::OCRLine> SelectedImage2TextLines() const;
+	std::string Image2TextSelectionText(bool line_breaks) const;
+
+public:
+	/// @brief Constructor
+	VideoDisplay(
+		wxToolBar *visualSubToolBar,
+		bool isDetached,
+		wxComboBox *zoomBox,
+		wxWindow* parent,
+		agi::Context *context);
+	~VideoDisplay();
+
+	/// @brief Render the currently visible frame
+	void Render();
+
+	/// @brief Set the zoom level
+	/// @param value The new zoom level
+	void SetWindowZoom(double value, bool adjust_pan = true);
+	void SetVideoZoom(int step);
+	/// @brief Get the current zoom level
+	double GetZoom() const { return windowZoomValue; }
+
+	/// @brief Reset the video pan
+	void ResetPan();
+
+	/// Get the last seen position of the mouse in script coordinates
+	Vector2D GetMousePosition() const;
+
+	void SetTool(std::unique_ptr<VisualToolBase> new_tool);
+	/// Temporarily detach the active tool. Callers must immediately install a
+	/// replacement or retain ownership until it can safely be restored.
+	std::unique_ptr<VisualToolBase> TakeTool();
+	bool HasVideo() const;
+
+	void SetSubTool(int subtool) const { tool->SetSubTool(subtool); };
+
+	bool ToolIsType(std::type_info const& type) const;
+
+	int GetSubTool() const { return tool->GetSubTool(); };
+
+	/// Discard all OpenGL state
+	void Unload();
+
+	void StartImage2TextOCR();
+	void StartImage2TextDetectOnly();
+};
