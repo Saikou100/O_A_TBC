@@ -371,6 +371,17 @@ jobs:
 
           meson test -C build --verbose "gtest main"
 
+      # Upload the bare executable before packaging, so a usable build exists
+      # even when installer/portable packaging fails. Drop it into an existing
+      # portable folder to replace aegisub.exe.
+      - name: Upload artifacts - aegisub.exe
+        uses: actions/upload-artifact@v4
+        if: matrix.config.os == 'windows-latest'
+        with:
+          name: ${{ matrix.config.name }} - aegisub.exe
+          path: build/aegisub.exe
+          if-no-files-found: error
+
       - name: Run test (non-Windows)
         if: matrix.config.os != 'windows-latest'
         run: meson test -C build --verbose "gtest main"
@@ -380,12 +391,18 @@ jobs:
         if: matrix.config.os == 'windows-latest'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run:
-          meson compile win-installer -C build
+        shell: pwsh
+        run: |
+          # Keep a copy of the output so "Report failure details" can surface it.
+          meson compile win-installer -C build 2>&1 | Tee-Object -FilePath build/installer-step.log
+          exit $LASTEXITCODE
 
       - name: Generate Windows portable installer
         if: matrix.config.os == 'windows-latest'
-        run: cd build && ninja win-portable
+        shell: pwsh
+        run: |
+          ninja -C build win-portable 2>&1 | Tee-Object -FilePath build/portable-step.log
+          exit $LASTEXITCODE
 
       - name: Verify DependencyControl installer migration and portable payload
         if: matrix.config.os == 'windows-latest'
@@ -525,6 +542,20 @@ jobs:
           name: ${{ matrix.config.name }}
           path: appimage/*.AppImage
           if-no-files-found: error
+
+      # Build logs are only visible to signed-in users; surface the tail of the
+      # relevant log as an annotation so failures can be diagnosed from the API.
+      - name: Report failure details (Windows)
+        if: failure() && matrix.config.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          foreach ($f in @('build/meson-logs/meson-log.txt', 'build/installer-step.log', 'build/portable-step.log')) {
+            if (Test-Path $f) {
+              $tail = (Get-Content $f -Tail 60) -join "`n"
+              $tail = $tail.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error title=$f::$tail"
+            }
+          }
 
       - name: Report sccache statistics (Windows)
         if: always() && steps.sccache.outcome == 'success'
