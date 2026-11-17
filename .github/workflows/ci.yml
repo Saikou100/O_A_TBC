@@ -1,13 +1,7 @@
 name: Meson CI
 
+# Builds run only when started by hand: GitHub > Actions > Meson CI > Run workflow.
 on:
-  push:
-    branches:
-      - '**'
-  pull_request:
-    branches:
-      - master
-      - feature
   workflow_dispatch:
 
 jobs:
